@@ -11,4 +11,10 @@ APP_ENV = ENV['APP_ENV'] || 'development'
 
 Bundler.require(:default, APP_ENV)
 
+loader = Zeitwerk::Loader.new
+loader.enable_reloading if ['test', 'development'].include?(APP_ENV)
+loader.setup
+
+APP_LOADER = loader
+
 puts "Boot completed"
