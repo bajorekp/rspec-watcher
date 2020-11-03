@@ -5,16 +5,15 @@
 # The file should load all things to required to boot the app up.
 
 require 'bundler'
-require 'listen'
 
 APP_ENV = ENV['APP_ENV'] || 'development'
-
 Bundler.require(:default, APP_ENV)
 
 loader = Zeitwerk::Loader.new
-loader.enable_reloading if ['test', 'development'].include?(APP_ENV)
-loader.setup
-
 APP_LOADER = loader
+loader.push_dir("#{__dir__}/../app")
+loader.enable_reloading if %w[test development].include?(APP_ENV)
+loader.setup
+loader.eager_load
 
-puts "Boot completed"
+puts 'Boot completed'
