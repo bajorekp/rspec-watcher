@@ -1,0 +1,22 @@
+AllCops:
+  NewCops: enable
+
+require:
+  - rubocop-rspec
+
+Metrics/BlockLength:
+  Exclude:
+    - '**/cli.rb'
+    - spec/**/*
+
+Metrics/AbcSize:
+  Exclude:
+    - '**/cli.rb'
+
+Metrics/MethodLength:
+  Exclude:
+    - '**/cli.rb'
+
+Security/MarshalLoad:
+  Exclude:
+    - '**/watcher.rb'
