@@ -1,166 +1,17 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-BOOT_FILE = '../app/boot.rb'.freeze
-
-require 'optparse'
-
-### OPTIONS ###
-
-default_options = {
-  retry_previous_failures: true,
-  run_always_all: false,
-  run_all_on_start: false,
-  run_all_when_none: true,
-  console_waiter: true
-}
-
-WATCHER_OPTIONS = default_options.dup
-
-opt_parser = OptionParser.new do |opts|
-  opts.banner = "Usage: bin/rspec-watcher [options]"
-
-  opts.separator ""
-  opts.separator "Watcher for RSpec and Zeitwerk based projects."
-  opts.separator "It waits and runs affected tests in background with Pry console in"
-  opts.separator "foreground. Console allows for easy code debugging on the fly."
-  opts.separator ""
-  opts.separator "Options:"
-
-  opts.on("-a", "--[no-]all", "Run all test with every change (default: false)") do |toggle|
-    WATCHER_OPTIONS[:run_always_all] = toggle
-  end
-
-  opts.on("-n", "--[no-]all-when-none", "Run all test when no spec file is founded (default: true)") do |toggle|
-    WATCHER_OPTIONS[:run_all_when_none] = toggle
-  end
-
-  opts.on("-s", "--[no-]all-on-start", "Run all test on start (default: false)") do |toggle|
-    WATCHER_OPTIONS[:run_all_on_start] = toggle
-  end
-
-  opts.on("-r", "--[no-]retry", "Retry tests failed on previous run until fixed (default: true)") do |toggle|
-    WATCHER_OPTIONS[:retry_previous_failures] = toggle
-  end
-
-  opts.on("-c", "--[no-]console", "Wait with Pry console (default: true)") do |toggle|
-    WATCHER_OPTIONS[:console_waiter] = toggle
-  end
-
-  # No argument, shows at tail. This will print an options summary.
-  opts.on("-h", "--help", "Show this message") do
-    puts opts
-    exit
-  end
-
-  opts.separator ""
-  opts.separator "The script is based on rspec-preloader. Check it out under the link:"
-  opts.separator " - https://github.com/victormours/rspec-preloader"
-
-  opts.on_tail ""
-end
-
-opt_parser.parse!(ARGV)
-
-### SCRIPT ###
-
 start_time = Time.now
+
 # HERE you set initialization for the project.
-# Set here the most time consuming tasks, like eager
-# loading of all libries.
+#
+# Set here the most time consuming tasks, like eager loading of all libries.
 ENV['APP_ENV'] = 'test'
-require_relative BOOT_FILE
-require 'pathname'
+require_relative '../config/boot'
+require_relative '../lib/rspec_watcher'
 
-puts "App loaded in #{(Time.now - start_time).round(2)} seconds."
-
-# Save last updated to global variable
-LAST_UPDATE = {}
-
-# Lists affected specs
-#
-# If the file in app folder will be modified it will add spec
-# with correlated path, i.e. modification of 'app/services/foo.rb'
-# will run 'spec/services/foo_spec.rb'.
-def map_to_spec(changed)
-  spec_paths = changed.map do |path|
-    if path.match? '/spec/'
-      path
-    elsif path.match? '/app/'
-      spec = path.gsub('/app/', '/spec/').gsub('.rb', '_spec.rb')
-      spec if Pathname.new(spec).exist?
-    else
-      nil
-    end
-  end
-  spec_paths.compact.uniq
-end
-
-def return_fork
-  read_end, write_end = IO.pipe
-  pid = fork do
-    result_in_fork = yield
-    Marshal.dump(result_in_fork, write_end)
-  end
-  Process.wait(pid)
-  write_end.close
-  result = Marshal.load(read_end.read)
-  read_end.close
-  result
-end
-
-def run_tests(spec_paths)
-  RSpec.configuration.start_time = Time.now
-  APP_LOADER.reload
-  result = return_fork do
-    RSpec::Core::Runner.run(spec_paths, STDERR, STDOUT)
-    RSpec.configuration.reporter.failed_examples.map(&:file_path)
-  end
-  LAST_UPDATE[:failed_specs] = result
-end
-
-def get_specs_to_run(modified)
-  return ['.'] if WATCHER_OPTIONS[:run_always_all]
-
-  puts
-  puts "Modified: #{modified}"
-  puts "Last failed: #{LAST_UPDATE[:failed_specs]}"
-  LAST_UPDATE[:modified] = modified
-  spec_paths = map_to_spec(modified)
-  LAST_UPDATE[:related_specs] = spec_paths
-
-  specs_to_run = spec_paths
-  if WATCHER_OPTIONS[:retry_previous_failures]
-    failed = LAST_UPDATE[:failed_specs]
-    specs_to_run += failed if failed.is_a?(Array)
-  end
-  specs_to_run = ['.'] if specs_to_run.empty? && WATCHER_OPTIONS[:run_all_when_none]
-  LAST_UPDATE[:specs_to_run] = specs_to_run
-  puts "Specs to run: #{specs_to_run}"
-
-  specs_to_run
-end
-
-# Listen for file modification in app and spec directories.
-#
-# Listener watches for changes and:
-#  1. Executes code reloader (APP_LOADER.reload)
-#  2. Forks process (whole App should be initialized in the moment)
-#  3. Loads RSpec config (spec_helper.rb - required setup)
-#  4. Loads and executes each spec file
-listener = Listen.to('./spec', './app') do |modified, added, _removed|
-  specs_to_run = get_specs_to_run(modified)
-  run_tests(specs_to_run)
-end
-
-run_tests(['.']) if WATCHER_OPTIONS[:run_all_on_start]
-listener.start
-
-if WATCHER_OPTIONS[:console_waiter]
-  puts "Watcher listens for changes. Pry console is active."
-  puts "Press Enter to bring the console to the foreground."
-  Pry.start
-else
-  puts "Watcher is listening. Waits for changes."
-  sleep
-end
+RspecWatcher.start(
+  start_time: start_time,
+  arguments: ARGV,
+  loader: APP_LOADER
+)
