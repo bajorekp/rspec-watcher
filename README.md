@@ -4,15 +4,15 @@ Watcher for RSpec and Zeitwerk based projects.
 It waits and runs affected tests in background with Pry console in
 foreground. Console allows for easy code debugging on the fly.
 
-The repository is not a gem but it simply contains a single script you can copy and use it for your own project.
+The repository is not a gem. Just copy files from _lib_ and _bin_ directories and you are good. If you think it should be publish to RubyGem, just leave a star for the repo or open an issue.
 
 ## Setup
 
+1. Copy files from `lib` directory to _lib_ directory in your project
 1. Copy `bin/rspec-watcher` to _bin_ directory in your project
-1. Set `BOOT_FILE` for path to file which boots but don't start the application
-1. Change `APP_LOADER` to the constant which points to your setup `Zeitwerk::Loader`
+1. Change `APP_LOADER` to the constant which points to `Zeitwerk::Loader` instance in your project
 1. Make sure that `loader.enable_reloading` has been executed before `loader.setup`
-1. Run with `bin/rspec-watcher`
+1. Run `bin/rspec-watcher` to test the watcher out
 
 ## Options
 
@@ -22,7 +22,7 @@ The repository is not a gem but it simply contains a single script you can copy 
 -s, --[no-]all-on-start          Run all test on start (default: false)
 -r, --[no-]retry                 Retry tests failed on previous run until fixed (default: true)
 -c, --[no-]console               Wait with Pry console (default: true)
--h, --help                       Show this message
+-h, --help                       Prints help
 ```
 
 The script is based on rspec-preloader. Check it out under the link:
